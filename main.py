@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import argparse
+import numpy as np
 import os
 import src.matter as matter
 
@@ -15,9 +16,15 @@ args = parser.parse_args()
 
 if __name__ == '__main__':
 
-    print "Training set:", mnist.train.images.shape, mnist.train.labels.shape
-    print "Test set:", mnist.test.images.shape, mnist.test.labels.shape
-    print "Validation set:", mnist.validation.images.shape, mnist.validation.labels.shape
+    # print "Training set:", mnist.train.images.shape, mnist.train.labels.shape
+    # print "Test set:", mnist.test.images.shape, mnist.test.labels.shape
+    # print "Validation set:", mnist.validation.images.shape, mnist.validation.labels.shape
+
+    data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
+    labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
+
+    print "Dataset:", data.shape
+    print "Labels:", labels.shape
 
     # world_size = (60, 60)
     # past_steps = 2
