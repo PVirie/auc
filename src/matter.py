@@ -3,18 +3,33 @@ import numpy as np
 import util
 
 
+def mirroring_relus(input):
+    return tf.stack([tf.nn.relu(input), -tf.nn.relu(-input)], axis=2)
+
+
 class Layer:
     def __init__(self, shape, learning_coeff):
         self.shape = shape
         self.learning_coeff = learning_coeff
-        self.w = tf.Variable(util.random_uniform(shape[0], shape[1]), dtype=tf.float32)
+        self.w = tf.Variable(util.random_uniform(shape[0] * 2, shape[1]), dtype=tf.float32)
         self.b = tf.Variable(np.zeros((shape[0] * 2)), dtype=tf.float32)
 
+        self.W = tf.Variable(np.zeros((shape[0] * 2, shape[0] * 2)), dtype=tf.float32)
+        self.B = tf.Variable(np.zeros((shape[0] * 2)), dtype=tf.float32)
+
     def create_forward_graph(self, input):
-        expanded = tf.reshape(tf.nn.crelu(input), [-1, 2 * self.shape[0]])
+        expanded = tf.reshape(mirroring_relus(input), [-1, 2 * self.shape[0]])
         biased = expanded - self.b
         reduced = tf.matmul(biased, self.w)
-        return reduced
+
+        gather_W = tf.assign(self.W, tf.matmul(expanded, expanded, transpose_a=True) * (self.learning_coeff) + self.W * (1 - self.learning_coeff)).op
+        gather_B = tf.assign(self.B, tf.reduce_mean(expanded, axis=0) * (self.learning_coeff) + self.B * (1 - self.learning_coeff)).op
+
+        s, u, v = tf.svd(self.W, compute_uv=True)
+        learn_op_w = tf.assign(self.w, tf.slice(u, [0, 0], [self.shape[0] * 2, self.shape[1]])).op
+        learn_op_b = tf.assign(self.b, self.B).op
+
+        return reduced, (gather_W, gather_B, learn_op_w, learn_op_b)
 
     def create_backward_graph(self, input):
         inverted_reduced = tf.matmul(input, self.w, transpose_b=True)
@@ -22,116 +37,67 @@ class Layer:
         inverted_expanded = tf.reduce_sum(tf.reshape(inverted_biased, [-1, self.shape[0], 2]), axis=2)
         return inverted_expanded
 
+    def debug(self):
+        return self.B
+
 
 class Autoencoder:
 
-    def __init__(self, sess, layer_sizes, learning_coeff):
+    def __init__(self, sess, input_size, layer_sizes, learning_coeff, learning_rate=0.01):
         self.sess = sess
-        self.layers = layer_sizes
+        self.input_size = input_size
+        self.layer_sizes = layer_sizes
         self.learning_coeff = learning_coeff
+        self.layers = []
+        self.debug = []
+
+        s0_ = input_size[0] + input_size[1]
+        for s1_ in layer_sizes:
+            self.layers.append(Layer((s0_, s1_), learning_coeff))
+            s0_ = s1_
+            self.debug.append(self.layers[len(self.layers) - 1].debug())
+
+        self.gpu_inputs = tf.placeholder(tf.float32, [None, input_size[0]])
+        self.gpu_labels = tf.placeholder(tf.float32, [None, input_size[1]])
+
+        info_space, learn_ops = self._create_forward_graph(self.gpu_inputs, self.gpu_labels)
+        projected_input, projected_label = self._create_backward_graph(info_space)
+        infer_objective = tf.reduce_sum(tf.squared_difference(self.gpu_inputs, projected_input))
+        infer_grad = tf.gradients(infer_objective, [info_space])
+        self.infer_input, self.infer_label = self._create_backward_graph(info_space - learning_rate * infer_grad[0])
+
+        self.learn_ops = learn_ops
+
+    def _create_forward_graph(self, input, label):
+        learn_ops = []
+        v = tf.concat([input, label], axis=1)
+        for l in self.layers:
+            v, learn_op = l.create_forward_graph(v)
+            learn_ops.append(learn_op)
+        return v, learn_ops
+
+    def _create_backward_graph(self, input):
+        h = input
+        for l in reversed(self.layers):
+            h = l.create_backward_graph(h)
+        return tf.slice(h, [0, 0], [-1, self.input_size[0]]), tf.slice(h, [0, self.input_size[0]], [-1, self.input_size[1]])
 
     def learn(self, data, label):
-        print "stub"
+        self.sess.run(self.learn_ops, feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
 
-    def infer(self, data):
-        return np.random.rand(self.layers[0] - data.shape[0]) / (self.layers[0] - data.shape[0])
+    def infer(self, data, label):
+        return self.sess.run((self.infer_input, self.infer_label), feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
 
-#         self.f = activation
-#         self.mov = mov
-#         self.penalty = penalty
-#         self.stat_mov = stat_mov
-#         self.Ws = []
-#         self.Bs = []
-#         self.input_bias = tf.Variable(np.zeros((layers[0])), dtype=tf.float32)
+    def debug_test(self):
+        print self.sess.run(self.debug)
 
-#         # each = (Fisher information, previous optimal parameters)
-#         self.vWs = []
-#         self.vBs = []
-#         self.vBias = [tf.Variable(np.zeros((layers[0])), dtype=tf.float32)] * 3
 
-#         self.unnormalized_partition = tf.Variable(1, dtype=tf.float32)
+if __name__ == '__main__':
 
-#         for i in xrange(1, len(layers)):
-#             self.Ws.append(tf.Variable(util.random_uniform(layers[i - 1], layers[i]), dtype=tf.float32))
-#             self.vWs.append([tf.Variable(np.zeros((layers[i - 1], layers[i])), dtype=tf.float32)] * 3)
-#             self.Bs.append(tf.Variable(np.zeros((layers[i])), dtype=tf.float32))
-#             self.vBs.append([tf.Variable(np.zeros((layers[i])), dtype=tf.float32)] * 3)
+    sess = tf.Session()
 
-#     def debug(self):
-#         return [x[1] for x in self.vWs]
+    input = tf.placeholder(tf.float32, [None, None])
+    output = mirroring_relus(input)
 
-#     def forward(self, input):
-#         output = input
-#         for i in xrange(0, len(self.Ws)):
-#             output = self.f(tf.matmul(output, self.Ws[i]) + self.Bs[i])
-#         return output
-
-#     def backward(self, output):
-#         input = output
-#         for i in xrange(len(self.Ws) - 1, 0, -1):
-#             input = self.f(tf.matmul(input, self.Ws[i], transpose_b=True) + self.Bs[i - 1])
-#         return self.f(tf.matmul(input, self.Ws[0], transpose_b=True) + self.input_bias)
-
-#     def gradients(self, cost):
-
-#         all_vars = self.Ws + self.Bs + [self.input_bias]
-#         all_Fs = self.vWs + self.vBs + [self.vBias]
-#         penalty_term = tf.constant(0, dtype=tf.float32)
-#         for i in xrange(len(all_vars)):
-#             penalty_term = penalty_term + tf.reduce_mean(tf.stop_gradient(all_Fs[i][0]) * tf.square(all_vars[i] - tf.stop_gradient(all_Fs[i][1])))
-#         objective = cost + penalty_term * self.penalty
-#         grads = tf.gradients(objective, all_vars)
-#         L_grads = tf.gradients(-cost, all_vars)
-#         likelihood = tf.exp(-cost)
-
-#         collect_stat_ops = []
-#         for i in xrange(len(L_grads)):
-#             if(L_grads[i] is None):
-#                 continue
-#             collect_stat_ops.append(tf.assign(all_Fs[i][2], all_Fs[i][2] * self.stat_mov + likelihood * tf.square(L_grads[i]) * (1 - self.stat_mov)).op)
-#         collect_stat_ops.append(tf.assign(self.unnormalized_partition, self.unnormalized_partition * self.stat_mov + likelihood * (1 - self.stat_mov)).op)
-
-#         return zip(grads, all_vars), collect_stat_ops
-
-#     def get_reseed_operation(self):
-
-#         all_vars = self.Ws + self.Bs + [self.input_bias]
-#         all_Fs = self.vWs + self.vBs + [self.vBias]
-#         self.reseed_ops = []
-#         for i in xrange(len(all_vars)):
-#             self.reseed_ops.append(tf.assign(all_Fs[i][0], all_Fs[i][0] * self.mov + (1 - self.mov) * all_Fs[i][2] / self.unnormalized_partition).op)
-#             self.reseed_ops.append(tf.assign(all_Fs[i][1], all_vars[i]).op)
-
-#         return self.reseed_ops
-
-# if __name__ == '__main__':
-#     sess = tf.Session()
-
-#     input_size = 100
-#     matter = Matter([input_size, input_size, input_size], tf.sigmoid, penalty=1e4, mov=0.90, stat_mov=0.90)
-#     input = tf.placeholder(tf.float32, [1, input_size])
-#     output = tf.placeholder(tf.float32, [1, input_size])
-#     gen = matter.forward(input)
-#     cost = tf.reduce_sum(tf.squared_difference(gen, output))
-#     grads, stats = matter.gradients(cost)
-#     training_op = tf.train.AdamOptimizer(0.001).apply_gradients(grads)
-#     optimize_op = {"op": training_op, "cost": cost, "stat": stats}
-#     reseed = matter.get_reseed_operation()
-#     # grads = util.l2_loss(output, gen, tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES), 0.01)
-
-#     sess.run(tf.global_variables_initializer())
-
-#     inputs = []
-#     outputs = []
-#     for i in xrange(10):
-#         inp = np.random.rand(1, input_size)
-#         out = np.random.rand(1, input_size)
-#         inputs.append(inp)
-#         outputs.append(out)
-#         for j in xrange(500):
-#             print sess.run(optimize_op, feed_dict={input: inp, output: out})
-#         # print sess.run(matter.debug())
-#         print sess.run(reseed)
-
-#     for i in xrange(10):
-#         print sess.run(tf.reduce_sum(tf.squared_difference(output, gen)), feed_dict={input: inputs[i], output: outputs[i]})
+    cpu_input = (np.random.rand(1, 10) - 0.5)
+    print cpu_input, sess.run(output, feed_dict={input: cpu_input})

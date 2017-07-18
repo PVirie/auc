@@ -23,10 +23,10 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    layer_sizes = [data.shape[1] + labels.shape[1], 400, 200, 100, 100, 10]
-    learning_coeff = 0.1
+    layer_sizes = [400, 200, 100, 10]
+    learning_coeff = 0.01
     run_skip = 0
-    run_limit = 100
+    run_limit = 1000
 
     print "-----------------------"
     print "Dataset:", data.shape
@@ -38,19 +38,23 @@ if __name__ == '__main__':
     print "-----------------------"
 
     sess = tf.Session()
-    model = matter.Autoencoder(sess, layer_sizes, learning_coeff)
+    model = matter.Autoencoder(sess, (data.shape[1], labels.shape[1]), layer_sizes, learning_coeff)
     sess.run(tf.global_variables_initializer())
-
-    # if not args.reset:
-    #     machine.load_session("./artifacts/demo")
 
     error_graph = []
     average_error = 1.0
     for i in xrange(run_skip, run_skip + run_limit, 1):
-        label_ = model.infer(data[i, :])
-        model.learn(data[i, :], labels[i, :])
+
+        projected_ = data[i:i + 1, :]
+        label_ = np.zeros((1, labels.shape[1]))
+        for j in xrange(100):
+            projected_, label_ = model.infer(projected_, label_)
+
+        model.learn(data[i:i + 1, :], labels[i:i + 1, :])
+        print label_
         average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
         error_graph.append(average_error)
+        # model.debug_test()
 
     plt.plot(xrange(run_skip, run_skip + run_limit, 1), error_graph)
     plt.ylabel('average error')
