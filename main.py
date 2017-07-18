@@ -8,10 +8,11 @@ import matplotlib.pyplot as plt
 mnist = input_data.read_data_sets("data/", one_hot=True)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--reset", help="reset weight", action="store_true")
-parser.add_argument("--rate", help="learning rate", type=float)
-parser.add_argument("--total", help="total maps", type=int)
-parser.add_argument("--gen", help="generate mode, ignore total flag", action="store_true")
+parser.add_argument("--load", help="load weight", action="store_true")
+parser.add_argument("--coeff", help="learning rate", type=float)
+parser.add_argument("--skip", help="total maps", type=int)
+parser.add_argument("--limit", help="total maps", type=int)
+parser.add_argument("--infer", help="total maps", type=int)
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -24,9 +25,10 @@ if __name__ == '__main__':
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
     layer_sizes = [400, 200, 100, 10]
-    learning_coeff = 0.01
-    run_skip = 0
-    run_limit = 1000
+    learning_coeff = 0.01 if not args.coeff else args.coeff
+    run_skip = 0 if not args.skip else args.skip
+    run_limit = 1000 if not args.limit else args.limit
+    infer_steps = 100 if not args.infer else args.infer
 
     print "-----------------------"
     print "Dataset:", data.shape
@@ -35,11 +37,16 @@ if __name__ == '__main__':
     print "learning coeff: ", learning_coeff
     print "run skip: ", run_skip
     print "run limit: ", run_limit
+    print "inference steps: ", infer_steps
     print "-----------------------"
 
     sess = tf.Session()
     model = matter.Autoencoder(sess, (data.shape[1], labels.shape[1]), layer_sizes, learning_coeff)
     sess.run(tf.global_variables_initializer())
+
+    if args.load:
+        print "loading..."
+        model.load()
 
     error_graph = []
     average_error = 1.0
@@ -47,7 +54,7 @@ if __name__ == '__main__':
 
         projected_ = data[i:i + 1, :]
         label_ = np.zeros((1, labels.shape[1]))
-        for j in xrange(100):
+        for j in xrange(infer_steps):
             projected_, label_ = model.infer(projected_, label_)
 
         model.learn(data[i:i + 1, :], labels[i:i + 1, :])
@@ -55,6 +62,7 @@ if __name__ == '__main__':
         average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
         error_graph.append(average_error)
         # model.debug_test()
+    model.save()
 
     plt.plot(xrange(run_skip, run_skip + run_limit, 1), error_graph)
     plt.ylabel('average error')

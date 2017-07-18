@@ -68,6 +68,9 @@ class Autoencoder:
 
         self.learn_ops = learn_ops
 
+        scope = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        self.saver = tf.train.Saver(var_list=scope, keep_checkpoint_every_n_hours=1)
+
     def _create_forward_graph(self, input, label):
         learn_ops = []
         v = tf.concat([input, label], axis=1)
@@ -90,6 +93,12 @@ class Autoencoder:
 
     def debug_test(self):
         print self.sess.run(self.debug)
+
+    def save(self):
+        self.saver.save(self.sess, "./artifacts/" + "weights")
+
+    def load(self):
+        self.saver.restore(self.sess, "./artifacts/" + "weights")
 
 
 if __name__ == '__main__':
