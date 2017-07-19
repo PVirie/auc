@@ -27,7 +27,10 @@ def l2_loss(y, z, variables, rate=0.001):
 
 def apply_gradients(gradients, delta, rate=0.001):
     training_op = tf.train.AdamOptimizer(rate).apply_gradients(gradients)
-    return {"op": training_op, "cost": delta}
+    if delta is not None:
+        return {"op": training_op, "cost": delta}
+    else:
+        return {"op": training_op}
 
 
 def tf_ones_or_zeros(c):
