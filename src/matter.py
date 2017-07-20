@@ -27,12 +27,11 @@ class Layer:
         gather_C = tf.assign(self.C, tf.matmul(biased, biased, transpose_a=True) * (self.learning_coeff) + self.C * (1 - self.learning_coeff)).op
 
         learn_op_b = tf.assign(self.b, self.B).op
-        delta_left = (tf.matmul(self.w, self.w, transpose_b=True) - tf.eye(self.shape[0] * 2))
-        delta_right = (tf.matmul(self.w, self.w, transpose_a=True) - tf.eye(self.shape[1]))
-        cov_term = tf.matmul(self.C, self.w)
-        grad_C = tf.matmul(delta_left, cov_term) + tf.matmul(cov_term, delta_right)
-        obj = tf.reduce_sum(tf.squared_difference(tf.matmul(self.w, self.w, transpose_a=True), tf.eye(self.shape[1])))
-        learn_op_w = util.apply_gradients([(grad_C, self.w)], obj, self.learning_rate)
+
+        wwt = tf.matmul(self.w, self.w, transpose_b=True)
+        objective = tf.trace(self.C - tf.matmul(self.C, wwt) - tf.matmul(wwt, self.C) + tf.matmul(tf.matmul(wwt, self.C), wwt))
+        grad_C = tf.gradients(objective, [self.w])
+        learn_op_w = util.apply_gradients(zip(grad_C, [self.w]), objective, self.learning_rate)
 
         return reduced, (gather_C, gather_B, learn_op_b), learn_op_w
 
@@ -69,14 +68,14 @@ class Autoencoder:
         self.collect_ops = collect_ops
         self.learn_ops = learn_ops
 
-        self.variable_labels = tf.Variable(np.zeros((1, input_size[1])), dtype=tf.float32)
-        self.reset_ops = tf.assign(self.variable_labels, tf.zeros([1, input_size[1]], dtype=tf.float32)).op
+        self.info_space = tf.Variable(np.zeros((1, s0_)), dtype=tf.float32)
+        self.info_space_start, _, __ = self._create_forward_graph(self.gpu_inputs, self.gpu_labels)
+        self.reset_ops = tf.assign(self.info_space, self.info_space_start).op
 
-        self.info_space, _, __ = self._create_forward_graph(self.gpu_inputs, self.variable_labels)
-        projected_input, projected_label = self._create_backward_graph(self.info_space)
-        infer_objective = tf.reduce_sum(tf.squared_difference(self.gpu_inputs, projected_input))
-        infer_grad = tf.gradients(infer_objective, [self.variable_labels])
-        self.infer_ops = util.apply_gradients(zip(infer_grad, [self.variable_labels]), infer_objective, learning_rate)
+        self.projected_input, self.projected_label = self._create_backward_graph(self.info_space)
+        infer_objective = tf.reduce_sum(tf.squared_difference(self.gpu_inputs, self.projected_input))
+        infer_grad = tf.gradients(infer_objective, [self.info_space])
+        self.infer_ops = util.apply_gradients(zip(infer_grad, [self.info_space]), infer_objective, learning_rate)
 
         scope = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         self.saver = tf.train.Saver(var_list=scope, keep_checkpoint_every_n_hours=1)
@@ -101,13 +100,13 @@ class Autoencoder:
         self.sess.run(self.collect_ops, feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
 
     def learn(self, data, label):
-        print self.sess.run(self.learn_ops, feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
+        self.sess.run(self.learn_ops, feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
 
-    def reset_labels(self):
-        self.sess.run(self.reset_ops)
+    def reset_labels(self, data):
+        self.sess.run(self.reset_ops, feed_dict={self.gpu_inputs: data, self.gpu_labels: np.zeros((1, self.input_size[1]))})
 
     def infer(self, data):
-        return self.sess.run((self.infer_ops, self.variable_labels), feed_dict={self.gpu_inputs: data})
+        return self.sess.run((self.projected_label, self.projected_input, self.infer_ops), feed_dict={self.gpu_inputs: data})
 
     def debug_test(self):
         print self.sess.run(self.debug)
@@ -125,6 +124,7 @@ if __name__ == '__main__':
 
     input = tf.placeholder(tf.float32, [None, None])
     output = mirroring_relus(input)
-
+    input_ = tf.reduce_sum(output, 2)
+    error = tf.reduce_sum(tf.squared_difference(input_, input))
     cpu_input = (np.random.rand(1, 10) - 0.5)
-    print cpu_input, sess.run(output, feed_dict={input: cpu_input})
+    print sess.run(error, feed_dict={input: cpu_input})

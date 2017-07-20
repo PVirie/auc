@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import src.matter as matter
 import matplotlib.pyplot as plt
+import cv2
 
 mnist = input_data.read_data_sets("data/", one_hot=True)
 
@@ -25,7 +26,7 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    layer_sizes = [400]
+    layer_sizes = [400, 400, 200, 100]
     learning_coeff = 0.01 if not args.coeff else args.coeff
     learning_rate = 0.01 if not args.rate else args.rate
     run_skip = 0 if not args.skip else args.skip
@@ -55,10 +56,11 @@ if __name__ == '__main__':
     average_error = 1.0
     for i in xrange(run_skip, run_skip + run_limit, 1):
 
-        model.reset_labels()
+        model.reset_labels(data[i:i + 1, :])
 
+        projected_ = data[i:i + 1, :]
         for j in xrange(infer_steps):
-            _, label_ = model.infer(data[i:i + 1, :])
+            label_, projected_, _ = model.infer(data[i:i + 1, :])
             print _
 
         model.collect(data[i:i + 1, :], labels[i:i + 1, :])
@@ -69,7 +71,11 @@ if __name__ == '__main__':
         average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
         print average_error
         error_graph.append(average_error)
-        model.debug_test()
+        # model.debug_test()
+
+        canvas = np.concatenate((np.reshape(data[i:i + 1, :], (28, 28)), np.reshape(projected_, (28, 28))), axis=1)
+        cv2.imshow("a", canvas)
+        cv2.waitKey(1)
     model.save()
 
     plt.plot(xrange(run_skip, run_skip + run_limit, 1), error_graph)
