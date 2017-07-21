@@ -27,6 +27,7 @@ if __name__ == '__main__':
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
     layer_sizes = [400, 400, 200, 100]
+    # layer_sizes = [400, 200, 100, 50, 20, 10]
     learning_coeff = 0.01 if not args.coeff else args.coeff
     learning_rate = 0.01 if not args.rate else args.rate
     run_skip = 0 if not args.skip else args.skip
@@ -61,17 +62,27 @@ if __name__ == '__main__':
         projected_ = data[i:i + 1, :]
         for j in xrange(infer_steps):
             label_, projected_, _ = model.infer(data[i:i + 1, :])
-            print _
+        print _
 
         model.collect(data[i:i + 1, :], labels[i:i + 1, :])
 
         for j in xrange(infer_steps):
             model.learn(data[i:i + 1, :], labels[i:i + 1, :])
 
-        average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
+        gtruth = np.argmax(labels[i, :])
+        predicted = np.argmax(label_)
+        print gtruth, predicted
+        if predicted == gtruth:
+            average_error = (1 - learning_coeff) * average_error
+        else:
+            average_error = learning_coeff + (1 - learning_coeff) * average_error
+        # average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
         print average_error
         error_graph.append(average_error)
         # model.debug_test()
+
+        if i % 100 == 0:
+            model.save()
 
         canvas = np.concatenate((np.reshape(data[i:i + 1, :], (28, 28)), np.reshape(projected_, (28, 28))), axis=1)
         cv2.imshow("a", canvas)
