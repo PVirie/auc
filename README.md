@@ -34,16 +34,17 @@ These instructions will get you a copy of the project up and running on your loc
 ### Usage
 
 ```
-usage: python main.py [-h] [--plot] [--test] [--cont] [--rate RATE] [--pg] [--dg]
+usage: main.py [-h] [--load] [--coeff COEFF] [--rate RATE] [--skip SKIP]
+               [--limit LIMIT] [--infer INFER]
 
 optional arguments:
-  -h, --help   show this help message and exit
-  --plot       run plot
-  --test       run test
-  --cont       continue mode
-  --rate RATE  learning rate
-  --pg         policy gradient
-  --dg         disconnected gradient
+  -h, --help     show this help message and exit
+  --load         load weight
+  --coeff COEFF  update rate
+  --rate RATE    learning rate
+  --skip SKIP    example skip
+  --limit LIMIT  example limit
+  --infer INFER  total inference steps
 ```
 
 ## License
