@@ -29,8 +29,8 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    layer_sizes = [400, 200, 100, 50, 20]
-    # layer_sizes = [400, 100]
+    layer_sizes = [400, 200, 100, 20]
+    # layer_sizes = [400, 20]
     learning_coeff = 0.01 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
     learning_rate = 0.01 if not args.rate else args.rate
@@ -55,18 +55,20 @@ if __name__ == '__main__':
     print "-----------------------"
 
     sess = tf.Session()
-    model = matter.Autoencoder(sess, (data.shape[1], labels.shape[1]), layer_sizes, learning_rate)
+    model = matter.Autoencoder(sess, (data.shape[1], labels.shape[1]), layer_sizes, learning_rate, True)
     sess.run(tf.global_variables_initializer())
 
     if args.load:
         print "loading..."
         model.load()
 
-    for i in xrange(bootstrap_skip, bootstrap_skip + bootstrap_limit, 1):
-        model.collect(data[i:i + 1, :], labels[i:i + 1, :], learning_coeff)
+    if bootstrap_limit is not 0:
+        bootstrap_data = np.mean(data[bootstrap_skip:bootstrap_skip + bootstrap_limit, :], axis=0, keepdims=True)
+        bootstrap_labels = np.mean(labels[bootstrap_skip:bootstrap_skip + bootstrap_limit, :], axis=0, keepdims=True)
+        model.collect(bootstrap_data, bootstrap_labels, 0.1)
 
-    for j in xrange(2000):
-        model.learn()
+        for j in xrange(2000):
+            model.learn()
 
     error_graph = []
     average_error = 1.0
@@ -75,10 +77,9 @@ if __name__ == '__main__':
         label_ = np.zeros((1, labels.shape[1]))
         projected_ = data[i:i + 1, :]
         model.reset_input(projected_, label_)
-        for j in xrange(10):
-            model.reset_info(projected_, label_)
-            for k in xrange(10):
-                label_, projected_, _ = model.infer()
+        model.reset_info(projected_, label_)
+        for j in xrange(infer_steps):
+            label_, projected_, _ = model.infer()
         print _
 
         gtruth = np.argmax(labels[i, :])
@@ -90,7 +91,7 @@ if __name__ == '__main__':
             model.collect(data[i:i + 1, :], labels[i:i + 1, :], learning_coeff)
         else:
             average_error = eval_coeff + (1 - eval_coeff) * average_error
-            model.collect(data[i:i + 1, :], labels[i:i + 1, :], learning_coeff * 2)
+            model.collect(data[i:i + 1, :], labels[i:i + 1, :], learning_coeff)
         # average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
 
         print average_error
@@ -100,8 +101,9 @@ if __name__ == '__main__':
         cv2.imshow("a", canvas)
         cv2.waitKey(1)
 
-        for j in xrange(infer_steps):
+        for j in xrange(100):
             model.learn()
+        print model.learn()
         # model.debug_test()
         if i % 100 == 0:
             model.save()

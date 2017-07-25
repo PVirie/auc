@@ -33,6 +33,14 @@ def apply_gradients(gradients, delta, rate=0.001):
         return {"op": training_op}
 
 
+def apply_gradients_vanilla(gradients, delta, rate=0.001):
+    training_op = tf.train.GradientDescentOptimizer(rate).apply_gradients(gradients)
+    if delta is not None:
+        return {"op": training_op, "cost": delta}
+    else:
+        return {"op": training_op}
+
+
 def tf_ones_or_zeros(c):
     ones = tf.ones(tf.shape(c), dtype=tf.float32)
     zeros = tf.zeros(tf.shape(c), dtype=tf.float32)
