@@ -9,6 +9,7 @@ import cv2
 mnist = input_data.read_data_sets("data/", one_hot=True)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--layers", help="ex: '100, 100, 100'")
 parser.add_argument("--load", help="load weight", action="store_true")
 parser.add_argument("--coeff", help="update rate", type=float)
 parser.add_argument("--eval", help="evaluation coefficient", type=float)
@@ -29,8 +30,7 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    layer_sizes = [400, 250, 150]
-    # layer_sizes = [100]
+    layer_sizes = [400, 250, 150] if not args.layers else [int(x) for x in args.layers.split(',')]
     learning_coeff = 0.01 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
     learning_rate = 0.01 if not args.rate else args.rate

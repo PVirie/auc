@@ -34,17 +34,25 @@ These instructions will get you a copy of the project up and running on your loc
 ### Usage
 
 ```
-usage: main.py [-h] [--load] [--coeff COEFF] [--rate RATE] [--skip SKIP]
-               [--limit LIMIT] [--infer INFER]
+usage: main.py [-h] [--layers LAYERS] [--load] [--coeff COEFF] [--eval EVAL]
+               [--rate RATE] [--skip SKIP] [--limit LIMIT]
+               [--boot_skip BOOT_SKIP] [--boot_limit BOOT_LIMIT]
+               [--infer INFER]
 
 optional arguments:
-  -h, --help     show this help message and exit
-  --load         load weight
-  --coeff COEFF  update rate
-  --rate RATE    learning rate
-  --skip SKIP    example skip
-  --limit LIMIT  example limit
-  --infer INFER  total inference steps
+  -h, --help            show this help message and exit
+  --layers LAYERS       ex: '100, 100, 100'
+  --load                load weight
+  --coeff COEFF         update rate
+  --eval EVAL           evaluation coefficient
+  --rate RATE           learning rate
+  --skip SKIP           run skip
+  --limit LIMIT         run limit
+  --boot_skip BOOT_SKIP
+                        bootstrap skip
+  --boot_limit BOOT_LIMIT
+                        bootstrap limit
+  --infer INFER         total inference steps
 ```
 
 ## License
