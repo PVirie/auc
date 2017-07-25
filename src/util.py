@@ -13,28 +13,28 @@ def build_cpu_shift_mat(size):
     return cpu_shift
 
 
-def cross_entropy(y, z, variables, rate=0.001):
+def cross_entropy(y, z, variables, rate=0.001, name="adam"):
     cost = tf.reduce_sum(tf.multiply(z, -tf.log(y)) + tf.multiply((1 - z), -tf.log(1 - y)))
-    training_op = tf.train.AdamOptimizer(rate).minimize(cost, var_list=variables)
+    training_op = tf.train.AdamOptimizer(rate, name=name).minimize(cost, var_list=variables)
     return {"op": training_op, "cost": cost}
 
 
-def l2_loss(y, z, variables, rate=0.001):
+def l2_loss(y, z, variables, rate=0.001, name="adam"):
     cost = tf.reduce_sum(tf.squared_difference(z, y))
-    training_op = tf.train.AdamOptimizer(rate).minimize(cost, var_list=variables)
+    training_op = tf.train.AdamOptimizer(rate, name=name).minimize(cost, var_list=variables)
     return {"op": training_op, "cost": cost}
 
 
-def apply_gradients(gradients, delta, rate=0.001):
-    training_op = tf.train.AdamOptimizer(rate).apply_gradients(gradients)
+def apply_gradients(gradients, delta, rate=0.001, name="adam"):
+    training_op = tf.train.AdamOptimizer(rate, name=name).apply_gradients(gradients)
     if delta is not None:
         return {"op": training_op, "cost": delta}
     else:
         return {"op": training_op}
 
 
-def apply_gradients_vanilla(gradients, delta, rate=0.001):
-    training_op = tf.train.GradientDescentOptimizer(rate).apply_gradients(gradients)
+def apply_gradients_vanilla(gradients, delta, rate=0.001, name="gd"):
+    training_op = tf.train.GradientDescentOptimizer(rate, name=name).apply_gradients(gradients)
     if delta is not None:
         return {"op": training_op, "cost": delta}
     else:

@@ -4,7 +4,15 @@ import util
 
 
 def mirroring_relus(input):
-    return tf.stack([tf.nn.relu(input), -tf.nn.relu(-input)], axis=2)
+    return tf.stack([tf.nn.relu(input), tf.nn.relu(-input)], axis=2)
+
+
+def inverse_mirroring_relus(input):
+    bases = tf.unstack(input, axis=2)
+    conditions = bases[0] > bases[1]
+    out = tf.where(conditions, bases[0], -bases[1])
+    residue = tf.where(conditions, tf.square(bases[1]), tf.square(bases[0]))
+    return out, residue
 
 
 class Layer:
@@ -42,8 +50,8 @@ class Layer:
     def create_backward_graph(self, input):
         inverted_reduced = tf.matmul(input, self.w, transpose_b=True)
         inverted_biased = inverted_reduced + self.b
-        inverted_expanded = tf.reduce_sum(tf.reshape(inverted_biased, [-1, self.shape[0], 2]), axis=2)
-        return inverted_expanded
+        inverted_expanded, residue = inverse_mirroring_relus(tf.reshape(inverted_biased, [-1, self.shape[0], 2]))
+        return inverted_expanded, residue
 
     def debug(self):
         return tf.reduce_mean(self.w)
@@ -81,10 +89,15 @@ class Autoencoder:
         self.collect_ops = collect_ops
         self.learn_ops = learn_ops
 
-        self.projected_input, self.projected_label = self._create_backward_graph(self.info_space)
-        infer_objective = tf.reduce_sum(tf.squared_difference(self.input_space, self.projected_input))
+        self.projected_input, self.projected_label, self.residues = self._create_backward_graph(self.info_space)
+        infer_objective = tf.reduce_sum(tf.squared_difference(self.input_space, self.projected_input)) + self.residues
         infer_grad = tf.gradients(infer_objective, [self.info_space])
-        self.infer_ops = util.apply_gradients(zip(infer_grad, [self.info_space]), infer_objective, learning_rate)
+
+        with tf.variable_scope("infer_optimizer"):
+            self.infer_ops = util.apply_gradients(zip(infer_grad, [self.info_space]), infer_objective, learning_rate)
+
+        infer_optimizer_scope = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="infer_optimizer")
+        self.reset_infer_ops = tf.initialize_variables(infer_optimizer_scope)
 
         scope = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         self.saver = tf.train.Saver(var_list=scope, keep_checkpoint_every_n_hours=1)
@@ -101,9 +114,11 @@ class Autoencoder:
 
     def _create_backward_graph(self, input):
         h = input
+        residues = tf.zeros((), dtype=tf.float32)
         for l in reversed(self.layers):
-            h = l.create_backward_graph(h)
-        return tf.slice(h, [0, 0], [-1, self.input_size[0]]), tf.slice(h, [0, self.input_size[0]], [-1, self.input_size[1]])
+            h, r = l.create_backward_graph(h)
+            residues = residues + tf.reduce_sum(r)
+        return tf.slice(h, [0, 0], [-1, self.input_size[0]]), tf.slice(h, [0, self.input_size[0]], [-1, self.input_size[1]]), residues
 
     def collect(self, data, label, significance):
         self.sess.run(self.collect_ops, feed_dict={self.gpu_inputs: data, self.gpu_labels: label, self.learning_coeff: significance})
@@ -112,7 +127,7 @@ class Autoencoder:
         return self.sess.run(self.learn_ops)
 
     def reset_input(self, data, label):
-        self.sess.run(self.reset_ops, feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
+        self.sess.run((self.reset_ops, self.reset_infer_ops), feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
 
     def reset_info(self, data, label):
         self.sess.run(self.project_ops, feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
@@ -136,7 +151,7 @@ if __name__ == '__main__':
 
     input = tf.placeholder(tf.float32, [None, None])
     output = mirroring_relus(input)
-    input_ = tf.reduce_sum(output, 2)
+    input_, residue = inverse_mirroring_relus(output)
     error = tf.reduce_sum(tf.squared_difference(input_, input))
     cpu_input = (np.random.rand(1, 10) - 0.5)
-    print sess.run(error, feed_dict={input: cpu_input})
+    print sess.run((error, input_, input), feed_dict={input: cpu_input})

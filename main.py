@@ -29,8 +29,8 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    layer_sizes = [400, 200, 100, 20]
-    # layer_sizes = [400, 20]
+    layer_sizes = [400, 200, 100]
+    # layer_sizes = [100]
     learning_coeff = 0.01 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
     learning_rate = 0.01 if not args.rate else args.rate
