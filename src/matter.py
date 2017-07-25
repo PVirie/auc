@@ -97,7 +97,7 @@ class Autoencoder:
             self.infer_ops = util.apply_gradients(zip(infer_grad, [self.info_space]), infer_objective, learning_rate)
 
         infer_optimizer_scope = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="infer_optimizer")
-        self.reset_infer_ops = tf.initialize_variables(infer_optimizer_scope)
+        self.reset_infer_ops = tf.variables_initializer(infer_optimizer_scope)
 
         scope = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         self.saver = tf.train.Saver(var_list=scope, keep_checkpoint_every_n_hours=1)

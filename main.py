@@ -29,15 +29,15 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    layer_sizes = [400, 200, 100]
+    layer_sizes = [400, 250, 150]
     # layer_sizes = [100]
     learning_coeff = 0.01 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
     learning_rate = 0.01 if not args.rate else args.rate
-    run_skip = 1000 if not args.skip else args.skip
+    run_skip = 0 if not args.skip else args.skip
     run_limit = 1000 if not args.limit else args.limit
-    bootstrap_skip = 0 if not args.skip else args.boot_skip
-    bootstrap_limit = 1000 if not args.limit else args.boot_limit
+    bootstrap_skip = run_skip if not args.boot_skip else args.boot_skip
+    bootstrap_limit = 1 if not args.boot_limit else args.boot_limit
     infer_steps = 100 if not args.infer else args.infer
 
     print "-----------------------"
@@ -62,13 +62,14 @@ if __name__ == '__main__':
         print "loading..."
         model.load()
 
-    if bootstrap_limit is not 0:
-        bootstrap_data = np.mean(data[bootstrap_skip:bootstrap_skip + bootstrap_limit, :], axis=0, keepdims=True)
-        bootstrap_labels = np.mean(labels[bootstrap_skip:bootstrap_skip + bootstrap_limit, :], axis=0, keepdims=True)
-        model.collect(bootstrap_data, bootstrap_labels, 0.1)
+    bootstrap_data = np.mean(data[(bootstrap_skip):(bootstrap_skip + bootstrap_limit), :], axis=0, keepdims=True)
+    bootstrap_labels = np.mean(labels[(bootstrap_skip):(bootstrap_skip + bootstrap_limit), :], axis=0, keepdims=True)
+    model.collect(bootstrap_data, bootstrap_labels, 0.5)
 
-        for j in xrange(2000):
+    if bootstrap_limit > 1:
+        for j in xrange(10000):
             model.learn()
+        print model.learn()
 
     error_graph = []
     average_error = 1.0
