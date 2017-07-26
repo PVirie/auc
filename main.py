@@ -61,15 +61,15 @@ if __name__ == '__main__':
     if args.load:
         print "loading..."
         model.load()
+    else:
+        bootstrap_data = np.mean(data[(bootstrap_skip):(bootstrap_skip + bootstrap_limit), :], axis=0, keepdims=True)
+        bootstrap_labels = np.mean(labels[(bootstrap_skip):(bootstrap_skip + bootstrap_limit), :], axis=0, keepdims=True)
+        model.collect(bootstrap_data, bootstrap_labels, 0.5)
 
-    bootstrap_data = np.mean(data[(bootstrap_skip):(bootstrap_skip + bootstrap_limit), :], axis=0, keepdims=True)
-    bootstrap_labels = np.mean(labels[(bootstrap_skip):(bootstrap_skip + bootstrap_limit), :], axis=0, keepdims=True)
-    model.collect(bootstrap_data, bootstrap_labels, 0.5)
-
-    if bootstrap_limit > 1:
-        for j in xrange(10000):
-            model.learn()
-        print model.learn()
+        if bootstrap_limit > 1:
+            for j in xrange(10000):
+                model.learn()
+            print model.learn()
 
     error_graph = []
     average_error = 1.0
