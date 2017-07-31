@@ -77,6 +77,7 @@ if __name__ == '__main__':
 
     indices = range(run_skip, run_skip + run_limit, 1)
     random.shuffle(indices)
+    count = 0
     for i in indices:
 
         label_ = np.zeros((1, labels.shape[1]))
@@ -99,8 +100,9 @@ if __name__ == '__main__':
             model.collect(data[i:i + 1, :], labels[i:i + 1, :], learning_coeff)
         # average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
 
-        print "sample ", i, " error: ", average_error
+        print "sample ", count, " error: ", average_error
         error_graph.append(average_error)
+        count = count + 1
 
         canvas = np.concatenate((np.reshape(data[i:i + 1, :], (28, 28)), np.reshape(projected_, (28, 28))), axis=1)
         cv2.imshow("a", canvas)
@@ -114,6 +116,9 @@ if __name__ == '__main__':
             model.save()
 
     model.save()
+    with open("./artifacts/" + ','.join(str(x) for x in layer_sizes) + ".txt", "w") as output:
+        for v in error_graph:
+            output.write("%s\n" % str(v))
 
     plt.plot(xrange(run_skip, run_skip + run_limit, 1), error_graph)
     plt.ylabel('average error')
