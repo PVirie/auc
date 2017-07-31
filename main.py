@@ -29,6 +29,10 @@ if __name__ == '__main__':
 
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
+    indices = np.arange(data.shape[0])
+    np.random.shuffle(indices)
+    data = data[indices, ...]
+    labels = labels[indices, ...]
 
     layer_sizes = [400, 250, 150] if not args.layers else [int(x) for x in args.layers.split(',')]
     learning_coeff = 0.01 if not args.coeff else args.coeff
@@ -95,7 +99,7 @@ if __name__ == '__main__':
             model.collect(data[i:i + 1, :], labels[i:i + 1, :], learning_coeff)
         # average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
 
-        print average_error
+        print "sample ", i, " error: ", average_error
         error_graph.append(average_error)
 
         canvas = np.concatenate((np.reshape(data[i:i + 1, :], (28, 28)), np.reshape(projected_, (28, 28))), axis=1)
