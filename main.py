@@ -5,6 +5,7 @@ import numpy as np
 import src.matter as matter
 import matplotlib.pyplot as plt
 import cv2
+import random
 
 mnist = input_data.read_data_sets("data/", one_hot=True)
 
@@ -29,10 +30,6 @@ if __name__ == '__main__':
 
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
-    indices = np.arange(data.shape[0])
-    np.random.shuffle(indices)
-    data = data[indices, ...]
-    labels = labels[indices, ...]
 
     layer_sizes = [400, 250, 150] if not args.layers else [int(x) for x in args.layers.split(',')]
     learning_coeff = 0.01 if not args.coeff else args.coeff
@@ -77,7 +74,10 @@ if __name__ == '__main__':
 
     error_graph = []
     average_error = 1.0
-    for i in xrange(run_skip, run_skip + run_limit, 1):
+
+    indices = range(run_skip, run_skip + run_limit, 1)
+    random.shuffle(indices)
+    for i in indices:
 
         label_ = np.zeros((1, labels.shape[1]))
         projected_ = data[i:i + 1, :]
