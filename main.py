@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import argparse
 import numpy as np
-import src.matter as matter
+import src.conceptor as conceptor
 import matplotlib.pyplot as plt
 import cv2
 import random
@@ -31,10 +31,10 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    layer_sizes = [400, 250, 150] if not args.layers else [int(x) for x in args.layers.split(',')]
-    learning_coeff = 0.01 if not args.coeff else args.coeff
+    layer_sizes = [64, 64, 10] if not args.layers else [int(x) for x in args.layers.split(',')]
+    learning_coeff = 0.001 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
-    learning_rate = 0.01 if not args.rate else args.rate
+    learning_rate = 0.001 if not args.rate else args.rate
     run_skip = 0 if not args.skip else args.skip
     run_limit = 1000 if not args.limit else args.limit
     bootstrap_skip = run_skip if not args.boot_skip else args.boot_skip
@@ -56,21 +56,12 @@ if __name__ == '__main__':
     print "-----------------------"
 
     sess = tf.Session()
-    model = matter.Autoencoder(sess, (data.shape[1], labels.shape[1]), layer_sizes, learning_rate, True)
+    model = conceptor.MLP(sess, data.shape[1], layer_sizes, learning_rate, aperture=1.0)
     sess.run(tf.global_variables_initializer())
 
     if args.load:
         print "loading..."
         model.load()
-    else:
-        bootstrap_data = np.mean(data[(bootstrap_skip):(bootstrap_skip + bootstrap_limit), :], axis=0, keepdims=True)
-        bootstrap_labels = np.mean(labels[(bootstrap_skip):(bootstrap_skip + bootstrap_limit), :], axis=0, keepdims=True)
-        model.collect(bootstrap_data, bootstrap_labels, 0.5)
-
-        if bootstrap_limit > 1:
-            for j in xrange(10000):
-                model.learn()
-            print model.learn()
 
     error_graph = []
     average_error = 1.0
@@ -80,39 +71,33 @@ if __name__ == '__main__':
     count = 0
     for i in indices:
 
-        label_ = np.zeros((1, labels.shape[1]))
-        projected_ = data[i:i + 1, :]
-        model.reset_input(projected_, label_)
-        model.reset_info(projected_, label_)
-        for j in xrange(infer_steps):
-            label_, projected_, _ = model.infer()
-        print _
-
         gtruth = np.argmax(labels[i, :])
-        predicted = np.argmax(label_)
+        predicted = model.gen(data[i:i + 1, :])[0]
         print gtruth, predicted
 
         if predicted == gtruth:
             average_error = (1 - eval_coeff) * average_error
-            model.collect(data[i:i + 1, :], labels[i:i + 1, :], learning_coeff)
         else:
             average_error = eval_coeff + (1 - eval_coeff) * average_error
-            model.collect(data[i:i + 1, :], labels[i:i + 1, :], learning_coeff)
         # average_error = learning_coeff * (np.sum((label_ - labels[i, :])**2)) + (1 - learning_coeff) * average_error
 
         print "sample ", count, " error: ", average_error
         error_graph.append(average_error)
         count = count + 1
 
-        canvas = np.concatenate((np.reshape(data[i:i + 1, :], (28, 28)), np.reshape(projected_, (28, 28))), axis=1)
-        cv2.imshow("a", canvas)
-        cv2.waitKey(1)
+        model.init()
 
         for j in xrange(100):
-            model.learn()
-        print model.learn()
+            _, loss = model.learn(data[i:i + 1, :], labels[i:i + 1, :])
+            if loss < 1e-3:
+                break
+        print loss
+
+        model.update()
+        model.collect(data[i:i + 1, :], learning_coeff)
+
         # model.debug_test()
-        if i % 100 == 0:
+        if count % 100 == 0:
             model.save()
 
     model.save()
