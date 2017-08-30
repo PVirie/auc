@@ -31,7 +31,9 @@ if __name__ == '__main__':
     data = np.concatenate([mnist.train.images, mnist.test.images, mnist.validation.images], axis=0)
     labels = np.concatenate([mnist.train.labels, mnist.test.labels, mnist.validation.labels], axis=0)
 
-    layer_sizes = [64, 64, 10] if not args.layers else [int(x) for x in args.layers.split(',')]
+    # conceptor has problems with multi-layer models. I suspect that because as the values propagate,
+    # the information would span accross the entire subspace of the input of each layer.
+    layer_sizes = [128, 10] if not args.layers else [int(x) for x in args.layers.split(',')]
     learning_coeff = 0.001 if not args.coeff else args.coeff
     eval_coeff = 0.01 if not args.eval else args.eval
     learning_rate = 0.001 if not args.rate else args.rate
