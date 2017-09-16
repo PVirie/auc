@@ -51,8 +51,8 @@ class MLP:
         self.gpu_labels = tf.placeholder(tf.float32, [1, s0_])
 
         output_, self.init_ops, self.update_ops, self.gather_ops, scope = self._create_forward_graph(self.gpu_inputs, self.learning_coeff)
-
         self.output = tf.argmax(output_, 1)
+
         self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.gpu_labels, logits=output_))
 
         print [s.name for s in scope]
@@ -73,17 +73,17 @@ class MLP:
             variables = variables + l.get_optimizable_variables()
         return v, init_ops, update_ops, gather_ops, variables
 
-    def collect(self, data, significance):
-        self.sess.run(self.gather_ops, feed_dict={self.gpu_inputs: data, self.learning_coeff: significance})
+    def init(self):
+        self.sess.run(self.init_ops)
 
     def learn(self, data, label):
         return self.sess.run((self.learn_ops, self.loss), feed_dict={self.gpu_inputs: data, self.gpu_labels: label})
 
-    def init(self):
-        self.sess.run(self.init_ops)
-
     def update(self):
         self.sess.run(self.update_ops)
+
+    def collect(self, data, significance):
+        self.sess.run(self.gather_ops, feed_dict={self.gpu_inputs: data, self.learning_coeff: significance})
 
     def gen(self, data):
         return self.sess.run(self.output, feed_dict={self.gpu_inputs: data})
@@ -110,10 +110,10 @@ if __name__ == '__main__':
 
     train_op = tf.train.AdamOptimizer(0.01).minimize(error, var_list=layer.get_optimizable_variables())
 
+    sess.run(tf.global_variables_initializer())
+
     cpu_input = (np.random.rand(100, 10) - 0.5)
     cpu_output = np.matmul(cpu_input, np.random.rand(10, 5))
-
-    sess.run(tf.global_variables_initializer())
 
     results = []
     for i in xrange(cpu_input.shape[0]):
