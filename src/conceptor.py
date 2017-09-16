@@ -10,9 +10,9 @@ class Layer:
     def __init__(self, shape, aperture=1.0):
         self.shape = shape
         self.aperture = aperture
-        self.w_ = tf.Variable(np.zeros((shape[0], shape[1])), dtype=tf.float32)
-        self.w = tf.Variable(np.zeros((shape[0], shape[1])), dtype=tf.float32)
-        self.V = tf.Variable(np.zeros((shape[0], shape[0])), dtype=tf.float32)
+        self.w_ = tf.Variable(np.zeros((shape[0], shape[1])), dtype=tf.float32, name="w_")
+        self.w = tf.Variable(np.zeros((shape[0], shape[1])), dtype=tf.float32, name="w")
+        self.V = tf.Variable(np.zeros((shape[0], shape[0])), dtype=tf.float32, name="V")
 
     def create_graph(self, input, learning_coeff):
 
@@ -50,12 +50,12 @@ class MLP:
         self.gpu_inputs = tf.placeholder(tf.float32, [1, input_size])
         self.gpu_labels = tf.placeholder(tf.float32, [1, s0_])
 
-        output_, self.init_ops, self.update_ops, self.gather_ops = self._create_forward_graph(self.gpu_inputs, self.learning_coeff)
+        output_, self.init_ops, self.update_ops, self.gather_ops, scope = self._create_forward_graph(self.gpu_inputs, self.learning_coeff)
 
         self.output = tf.argmax(output_, 1)
         self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.gpu_labels, logits=output_))
 
-        scope = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        print [s.name for s in scope]
         self.learn_ops = tf.train.AdamOptimizer(learning_rate).minimize(self.loss, var_list=scope)
         self.saver = tf.train.Saver(var_list=scope, keep_checkpoint_every_n_hours=1)
 
@@ -63,13 +63,15 @@ class MLP:
         init_ops = []
         update_ops = []
         gather_ops = []
+        variables = []
         v = input
         for l in self.layers:
             v, init_op, update_op, gather_op = l.create_graph(v, learning_coeff)
             init_ops.append(init_op)
             update_ops.append(update_op)
             gather_ops.append(gather_op)
-        return v, init_ops, update_ops, gather_ops
+            variables = variables + l.get_optimizable_variables()
+        return v, init_ops, update_ops, gather_ops, variables
 
     def collect(self, data, significance):
         self.sess.run(self.gather_ops, feed_dict={self.gpu_inputs: data, self.learning_coeff: significance})
