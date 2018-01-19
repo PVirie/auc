@@ -64,7 +64,24 @@ def prepare_data(data, first, last_not_included):
         return np.reshape(data[first:last_not_included, ...], (last_not_included - first, -1))
 
 
+# dist has shape [N, D]
+# domain has shape [D, 2] containing min and max of each dimension.
+def compute_basis_wise_entropy(dist, domain, bins=2):
+    N = float(dist.shape[0])
+    D = float(dist.shape[1])
+    bin_sizes = (domain[:, 1] - domain[:, 0]) / bins
+    indices = np.clip(((dist - domain[:, 0]) / bin_sizes).astype(np.int32), 0, bins - 1)
+
+    counts = [np.sum(indices == c, axis=0) for c in range(bins)]
+    unnorm = np.sum(np.sum(np.where(p > 0, p * np.log(p), 0)) for p in counts)
+
+    return D * np.log(N) - unnorm / N
+
+
 if __name__ == '__main__':
     data = np.random.uniform(size=(10, 2, 3))
     print data
     print prepare_data(data, -2, 3)
+    print compute_basis_wise_entropy(
+        np.random.rand(1024, 8),
+        np.stack([np.zeros(8), np.ones(8)], axis=1))
