@@ -72,8 +72,8 @@ def compute_basis_wise_entropy(dist, domain, bins=2):
     bin_sizes = (domain[:, 1] - domain[:, 0]) / bins
     indices = np.clip(((dist - domain[:, 0]) / bin_sizes).astype(np.int32), 0, bins - 1)
 
-    counts = [np.sum(indices == c, axis=0) for c in range(bins)]
-    unnorm = np.sum(np.sum(np.where(p > 0, p * np.log(p), 0)) for p in counts)
+    counts = [np.sum(indices == i, axis=0) for i in range(bins)]
+    unnorm = np.sum(np.sum(np.where(c > 0, c * np.log(c), 0)) for c in counts)
 
     return D * np.log(N) - unnorm / N
 
